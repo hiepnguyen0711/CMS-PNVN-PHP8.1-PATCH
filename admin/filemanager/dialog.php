@@ -623,6 +623,10 @@ $get_params = http_build_query($get_params);
             $files = scandir($config['current_path'] . $rfm_subfolder . $subdir);
         }
 
+        // PHP 8.1 compatibility: check if $files is array before count()
+        if (!is_array($files)) {
+            $files = array();
+        }
         $n_files = count($files);
 
         //php sorting
@@ -1115,9 +1119,11 @@ $get_params = http_build_query($get_params);
                                     $creation_thumb_path = "/" . $config['ftp_base_folder'] . $config['ftp_thumbs_dir'] . $subdir . $file;
                                 } else {
 
-                                    $creation_thumb_path = $mini_src = $src_thumb = $thumbs_path . $file;
+                                    $creation_thumb_path = $thumbs_path . $file;
+                                    // HIEP-CMS-8 PHP 8.1 FIX: Use absolute URL for thumbnail display
+                                    $mini_src = $src_thumb = $config['base_url'] . $cur_dir_thumb . $file;
 
-                                    if (!file_exists($src_thumb)) {
+                                    if (!file_exists($creation_thumb_path)) {
                                         if (!create_img($file_path, $creation_thumb_path, 122, 91, 'crop', $config)) {
                                             $src_thumb = $mini_src = "";
                                         }

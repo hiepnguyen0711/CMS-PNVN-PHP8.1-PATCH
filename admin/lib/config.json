@@ -1,0 +1,36 @@
+{
+  "dev": {
+    "display": true
+  },
+  "category": {
+    "index": true,
+    "noibat": false
+  },
+  "cart": {
+    "display": true
+  },
+  "lang": {
+    "0": {
+      "code": "vi",
+      "name": "Tiếng Việt",
+      "image": "templates/images/icon_vn.webp",
+      "price": "vnd"
+    }
+  },
+  "product": {
+    "thong_so": "0",
+    "video": "0",
+    "file": "0",
+    "ma_sp": "1",
+    "gia": "1",
+    "khuyen_mai": "1",
+    "don_vi_tinh": "0",
+    "paging": "24",
+    "thuoctinh": false
+  },
+  "posts": {
+    "video": "0",
+    "file": "0",
+    "paging": "15"
+  }
+}

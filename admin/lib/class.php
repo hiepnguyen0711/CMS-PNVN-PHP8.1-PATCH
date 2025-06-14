@@ -27,21 +27,37 @@ class func_index
 
     function init($config = array())
     {
-        foreach ($config as $k => $v)
-            $this->$k = $v;
+        // CRUD Fix Phase 1: Enhanced config handling for backward compatibility
+        if (isset($config['database'])) {
+            // New config format: nested database array
+            $db_config = $config['database'];
+            $this->servername = $db_config['servername'];
+            $this->username = $db_config['username'];
+            $this->password = $db_config['password'];
+            $this->database = $db_config['database'];
+            $this->refix = $db_config['refix'];
+        } else {
+            // Original logic: direct assignment (for backward compatibility)
+            foreach ($config as $k => $v) {
+                if (property_exists($this, $k)) {
+                    $this->$k = $v;
+                }
+            }
+        }
     }
 
     function connect()
     {
         try {
-            $this->db = new PDO("mysql:host=$this->servername;dbname=$this->database;charset=utf8", $this->username, $this->password);
+            // CRUD Fix Phase 1: Ensure PDO object creation with proper error handling
+            $this->db = new PDO("mysql:host=$this->servername;dbname=$this->database;charset=utf8mb4", $this->username, $this->password);
             // set the PDO error mode to exception
             $this->db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-            $this->db->exec("set names utf8");
-            // echo "Connected successfully"; 
+            $this->db->exec("set names utf8mb4");
 
         } catch (PDOException $e) {
-            echo "Connection failed: " . $e->getMessage();
+            echo "Connection failed: " . $e->getMessage() . "<br>";
+            $this->db = null;
         }
     }
 
@@ -58,14 +74,25 @@ class func_index
         $this->sql .=  $this->order;
         $this->sql .=  $this->limit;
         $this->sql = str_replace('#_', $this->refix, $this->sql);
-        return $this->query();
+        // CRUD Fix Phase 2: Fixed query call to match old version behavior
+        return $this->query($this->sql);
     }
 
     function query($sql)
     {
         $this->sql = str_replace('#_', $this->refix, $sql);
-        $stmt = $this->db->prepare($this->sql);
-        return $stmt->execute();
+        try {
+            if ($this->db instanceof PDO) {
+                $stmt = $this->db->prepare($this->sql);
+                return $stmt->execute();
+            } else {
+                throw new Exception("Database connection không hợp lệ");
+            }
+        } catch (Exception $e) {
+            echo "Query Error: " . $e->getMessage() . "<br>";
+            echo "SQL: " . $this->sql . "<br>";
+            return false;
+        }
     }
 
     function fetch_array($sql)
@@ -73,18 +100,26 @@ class func_index
 
         $arr = array();
         $this->sql = str_replace('#_', $this->refix, $sql);
-        $stmt = $this->db->prepare($this->sql);
-        $stmt->execute();
-        return $stmt->fetchAll();
+        if ($this->db instanceof PDO) {
+            $stmt = $this->db->prepare($this->sql);
+            $stmt->execute();
+            return $stmt->fetchAll();
+        } else {
+            die("Database connection không hợp lệ");
+        }
     }
 
     public function fetch()
     {
         $arr = array();
         $this->sql = str_replace('#_', $this->refix, $this->sql);
-        $stmt = $this->db->prepare($this->sql);
-        $stmt->execute();
-        return $stmt->fetchAll();
+        if ($this->db instanceof PDO) {
+            $stmt = $this->db->prepare($this->sql);
+            $stmt->execute();
+            return $stmt->fetchAll();
+        } else {
+            die("Database connection không hợp lệ");
+        }
     }
 
     public function o_fet($sql)
@@ -101,9 +136,13 @@ class func_index
     {
         $arr = array();
         $this->sql = str_replace('#_', $this->refix, $this->sql);
-        $stmt = $this->db->prepare($this->sql);
-        $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_CLASS);
+        if ($this->db instanceof PDO) {
+            $stmt = $this->db->prepare($this->sql);
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_CLASS);
+        } else {
+            die("Database connection không hợp lệ");
+        }
     }
 
     public function o_sel($sel, $table, $where = "", $order = "", $limit = "")
@@ -126,32 +165,48 @@ class func_index
     function assoc_array($sql)
     {
         $this->sql = str_replace('#_', $this->refix, $sql);
-        $stmt = $this->db->prepare($this->sql);
-        $stmt->execute();
-        return $stmt->fetchAll();
+        if ($this->db instanceof PDO) {
+            $stmt = $this->db->prepare($this->sql);
+            $stmt->execute();
+            return $stmt->fetchAll();
+        } else {
+            die("Database connection không hợp lệ");
+        }
     }
 
     function num_rows($sql)
     {
         $this->sql = str_replace('#_', $this->refix, $sql);
-        $stmt = $this->db->prepare($this->sql);
-        $stmt->execute();
-        return $stmt->rowCount();
+        if ($this->db instanceof PDO) {
+            $stmt = $this->db->prepare($this->sql);
+            $stmt->execute();
+            return $stmt->rowCount();
+        } else {
+            die("Database connection không hợp lệ");
+        }
     }
 
     function num()
     {
         $this->sql = str_replace('#_', $this->refix, $this->sql);
-        $stmt = $this->db->prepare($this->sql);
-        $stmt->execute();
-        return $stmt->rowCount();
+        if ($this->db instanceof PDO) {
+            $stmt = $this->db->prepare($this->sql);
+            $stmt->execute();
+            return $stmt->rowCount();
+        } else {
+            die("Database connection không hợp lệ");
+        }
     }
 
     function que()
     {
         $this->sql = str_replace('#_', $this->refix, $this->sql);
-        $stmt = $this->db->prepare($this->sql);
-        return $stmt->execute();
+        if ($this->db instanceof PDO) {
+            $stmt = $this->db->prepare($this->sql);
+            return $stmt->execute();
+        } else {
+            die("Database connection không hợp lệ");
+        }
     }
 
     function setTable($str)
@@ -198,14 +253,13 @@ class func_index
 
     function reset()
     {
-        $this->sql = "";
-        $this->result = "";
+        $this->table = "";
         $this->where = "";
         $this->order = "";
         $this->limit = "";
-        $this->table = "";
     }
 
+    // insert function
     function insert($data = array())
     {
         $into = "";
@@ -214,21 +268,22 @@ class func_index
             $into .= "," . $int;
             $values .= ",'" . $val . "'";
         }
-        if ($into{
-            0} == ",") $into{
-            0} = "(";
+        // CRUD Fix Phase 3: Fixed string access for PHP 8.1 compatibility
+        if (strlen($into) > 0 && $into[0] == ",") $into[0] = "(";
         $into .= ")";
-        if ($values{
-            0} == 0) $values{
-            0} = "(";
+        if (strlen($values) > 0 && $values[0] == ",") $values[0] = "(";
         $values .= ")";
 
         $this->sql = "insert into " . $this->table . $into . " values " . $values;
         $this->sql = str_replace('#_', $this->refix, $this->sql);
 
-        $stmt = $this->db->prepare($this->sql);
-        $stmt->execute();
-        return $this->db->lastInsertId();
+        if ($this->db instanceof PDO) {
+            $stmt = $this->db->prepare($this->sql);
+            $stmt->execute();
+            return $this->db->lastInsertId();
+        } else {
+            die("Database connection không hợp lệ");
+        }
     }
     // function insert($data = array())
     // {
@@ -256,9 +311,8 @@ class func_index
         foreach ($data as $col => $val) {
             $values .= "," . $col . " = '" . $val . "' ";
         }
-        if ($values{
-            0} == ",") $values{
-            0} = " ";
+        // CRUD Fix Phase 4: Fixed string access for PHP 8.1 compatibility
+        if (strlen($values) > 0 && $values[0] == ",") $values[0] = " ";
         $this->sql = "update " . $this->table . " set " . $values . $this->where;
 
         $this->sql = str_replace('#_', $this->refix, $this->sql);
@@ -338,20 +392,24 @@ class func_index
     {
         $arr = array();
         $this->sql = str_replace('#_', $this->refix, $sql);
-        $stmt = $this->db->prepare($this->sql);
-        $stmt->execute();
-        // $result = $stmt->setFetchMode(PDO::FETCH_ASSOC); 
-        $result = $stmt->fetchAll();
-        if (!empty($result)) {
-            return $result[0];
+        if ($this->db instanceof PDO) {
+            $stmt = $this->db->prepare($this->sql);
+            $stmt->execute();
+            // $result = $stmt->setFetchMode(PDO::FETCH_ASSOC); 
+            $result = $stmt->fetchAll();
+            if (!empty($result)) {
+                return $result[0];
+            }
+            return array();
+        } else {
+            die("Database connection không hợp lệ");
         }
-        return array();
     }
     function findIdSub($id, $level = 0)
     {
         $str = "";
         $query = $this->o_fet("select * from #_category where id_loai=$id and hien_thi=1 order by so_thu_tu asc, id desc");
-        if (count($query > 0)) {
+        if (count($query) > 0) {
             foreach ($query as $item) {
                 $str .= "," . $item['id'];
                 $check = $this->o_fet("select * from #_category where id_loai={$item['id']} and hien_thi=1 order by so_thu_tu asc, id desc");
@@ -369,14 +427,13 @@ class func_index
         $query = $this->simple_fetch("select * from cf_code where id=$id and hien_thi=1");
         $str .= $query['id'] . ",";
         if ($query['id_loai'] > 0) {
-            $i++;
             $str = $this->breadcrumbid($query['id_loai']) . $str;
         }
         return $str;
     }
     function breadcrumblist($id)
     {
-        $BreadcrumbList =  trim($this->breadcrumbid($id, $path), ',');
+        $BreadcrumbList =  trim($this->breadcrumbid($id), ',');
         $arrBrceList = explode(',', $BreadcrumbList);
         $dem = count($arrBrceList);
         $j = 2;
@@ -430,7 +487,8 @@ class func_index
     function clean($str)
     {
         $str = @trim($str);
-        
+        // get_magic_quotes_gpc() was removed in PHP 8.0
+        // Removed get_magic_quotes_gpc() check for PHP 8.1 compatibility
         return strip_tags($str);
     }
 
@@ -467,11 +525,11 @@ class func_index
 
         if ($id_loai == 0) {
             $query = $this->o_fet("select * from cf_code where id_loai=0 $and order by so_thu_tu asc, id desc");
-            echo $d->sql;
+            // echo $this->sql; // Debug nếu cần
             $plit = "";
         } else {
             $query = $this->o_fet("select * from cf_code where id_loai=$id_loai $and order by so_thu_tu asc, id desc");
-            echo $d->sql;
+            // echo $this->sql; // Debug nếu cần
             // Chèn thêm $level vào trước $plit
             $plit .= "= ";
         }
@@ -519,12 +577,12 @@ class func_index
     }
     function getIdsub($id_code)
     {
-        //$lis_id .= $id_code;
+        $lis_id = ''; // Khởi tạo biến
         $query = $this->o_fet("select * from cf_code where id_loai= $id_code");
         foreach ($query as $key => $value) {
             $lis_id .= ',' . $value['id'];
             $query2 = $this->o_fet("select * from cf_code where id_loai= " . $value['id']);
-            if (count($query2) > 0) {
+            if (is_array($query2) && count($query2) > 0) {
                 $lis_id .= $this->getIdsub($value['id']);
             }
         }
@@ -532,7 +590,8 @@ class func_index
     }
     public function checkPermission($id_user, $id_page)
     {
-        if ($_SESSION['is_admin'] == 1) {
+        // CRUD Fix Phase 5: Restored original permission logic from old version
+        if (isset($_SESSION['is_admin']) && $_SESSION['is_admin'] == 1) {
             return 1;
         } else {
             $query = $this->o_fet("select * from #_user_permission_group where id_user = $id_user and id_permission in ($id_page)");
@@ -543,9 +602,11 @@ class func_index
             }
         }
     }
+
     public function checkPermission_view($id_page)
     {
-        if ($_SESSION['is_admin'] == 1) {
+        // CRUD Fix Phase 5: Restored original permission logic from old version
+        if (isset($_SESSION['is_admin']) && $_SESSION['is_admin'] == 1) {
             return 1;
         } else {
             $query = $this->o_fet("select * from #_user_permission_group where id_user = " . $_SESSION['id_user'] . " and id_permission = $id_page and (action like '%1%' or action like '%2%' or action like '%3%') ");
@@ -559,7 +620,8 @@ class func_index
 
     public function checkPermission_edit($id_page)
     {
-        if ($_SESSION['is_admin'] == 1) {
+        // CRUD Fix Phase 5: Restored original permission logic from old version  
+        if (isset($_SESSION['is_admin']) && $_SESSION['is_admin'] == 1) {
             return 1;
         } else {
             $query = $this->o_fet("select * from #_user_permission_group where id_user = " . $_SESSION['id_user'] . " and id_permission = $id_page and (action like '%3%' or action like '%2%')");
@@ -573,7 +635,8 @@ class func_index
 
     public function checkPermission_dele($id_page)
     {
-        if ($_SESSION['is_admin'] == 1) {
+        // CRUD Fix Phase 5: Restored original permission logic from old version
+        if (isset($_SESSION['is_admin']) && $_SESSION['is_admin'] == 1) {
             return 1;
         } else {
             $query = $this->o_fet("select * from #_user_permission_group where id_user = " . $_SESSION['id_user'] . " and id_permission = $id_page and (action like '%3%')");
@@ -584,438 +647,440 @@ class func_index
             }
         }
     }
+
     function get_nav_act($id)
     {
-        $BreadcrumbList =  trim($this->breadcrumbid($id, $path), ',');
+        // CRUD Fix Phase 6: Restored breadcrumb logic from old version
+        $BreadcrumbList = trim($this->breadcrumbid($id), ',');
         $arrBrceList = explode(',', $BreadcrumbList);
         return $arrBrceList[0];
     }
     function getnews($id_code, $col = '*')
     {
-        $row = $this->simple_fetch("select $col from #_tintuc where id_code = $id_code and hien_thi = 1 " . _where_lang . "");
+        $row = $this->simple_fetch("SELECT $col FROM `#_tintuc`  WHERE id_code =" . $id_code . " and hien_thi = 1");
         return $row;
     }
     function getNewss($id_code, $col = '*', $home = '', $limit = '', $where2 = '')
     {
-        if ($home != '') {
-            $where = " and noi_bat = 1";
+        if ($home == 1) {
+            $andhome = " and home=1 ";
+        } elseif ($home == 2) {
+            $andhome = " and menu=1 ";
         } else {
-            $where = "";
+            $andhome = "";
         }
         if ($limit != '') {
-            $limit_txt = "limit " . $limit;
+            $andLimit = " LIMIT $limit ";
         } else {
-            $limit_txt = '';
+            $andLimit = "";
         }
-        $list_id = $id_code . $this->getIdsub($id_code);
-        $row = $this->o_fet("select $col from #_tintuc where id_loai in ($list_id) $where2 and hien_thi =1 " . _where_lang . " order by so_thu_tu ASC, id DESC $limit_txt");
+        $row = $this->fetch_array("SELECT $col FROM `#_tintuc`  WHERE hien_thi = 1 $andhome $where2 order by so_thu_tu asc, id desc $andLimit");
         return $row;
     }
     function getProduct($id_code, $col = '*')
     {
-        $row = $this->simple_fetch("select $col from #_sanpham where id_code = $id_code and hien_thi = 1 " . _where_lang . "");
+        $row = $this->simple_fetch("SELECT $col FROM `#_sanpham`  WHERE id_code =" . $id_code . " and hien_thi = 1");
         return $row;
     }
     function getProducts($id_code, $home = '', $limit = '')
     {
-        if ($home != '') {
-            $where = " and tieu_bieu = 1";
+        if ($home == 1) {
+            $andhome = " and home=1 ";
+        } elseif ($home == 2) {
+            $andhome = " and menu=1 ";
+        } elseif ($home == 3) {
+            $andhome = " and home=1 and noibat=1 ";
+        } elseif ($home == 4) {
+            $andhome = " and huy=1 ";
         } else {
-            $where = "";
+            $andhome = "";
         }
         if ($limit != '') {
-            $limit_txt = "limit " . $limit;
+            $andLimit = " LIMIT $limit ";
         } else {
-            $limit_txt = '';
+            $andLimit = "";
         }
-        $list_id = $id_code . $this->getIdsub($id_code);
-        $row = $this->o_fet("select * from #_sanpham where id_loai in ($list_id) $where and hien_thi =1 " . _where_lang . " order by so_thu_tu ASC, id DESC $limit_txt");
+        $row = $this->fetch_array("SELECT * FROM `#_sanpham`  WHERE id_loai =" . $id_code . " and hien_thi = 1 $andhome order by so_thu_tu asc, id desc $andLimit");
         return $row;
     }
+
     function getCate($id_code, $col = '*')
     {
-        $row = $this->simple_fetch("select $col from #_category where id_code = $id_code and hien_thi = 1 " . _where_lang . "");
-        if ($col == '*') {
-            return $row;
-        } else {
-            return $row[$col];
-        }
+        $row = $this->simple_fetch("SELECT $col FROM `#_category`  WHERE id_code ='" . $id_code . "' and hien_thi = 1");
+        return $row;
     }
+
     function getCates($id_code, $home = '')
     { //1:check home - 2:check menu
-        if ($home == '1') {
-            $where = " and tieu_bieu = 1";
-        } elseif ($home == '2') {
-            $where = " and menu = 1";
+        if ($home == 1) {
+            $andhome = " and home=1 ";
+        } elseif ($home == 2) {
+            $andhome = " and menu=1 ";
         } else {
-            $where = "";
+            $andhome = "";
         }
-        $row = $this->o_fet("select * from #_category where id_loai = $id_code $where and hien_thi =1 " . _where_lang . " order by so_thu_tu ASC, id DESC");
+        $row = $this->fetch_array("SELECT * FROM `#_category`  WHERE id_loai =" . $id_code . " and hien_thi = 1 $andhome order by so_thu_tu asc, id desc");
         return $row;
     }
     function getContent($id_code, $col = '')
     {
-        if ($col == '') {
-            $row = $this->simple_fetch("select * from #_category_noidung where hien_thi = 1  and id_code = $id_code " . _where_lang . "");
-            return $row;
+        if ($col != '') {
+            $col2 = $col;
         } else {
-            $row = $this->simple_fetch("select $col from #_category_noidung where hien_thi = 1  and id_code = $id_code " . _where_lang . "");
-            return $row[$col];
+            $col2 = "*";
         }
+        $row = $this->simple_fetch("SELECT $col2 FROM `#_content`  WHERE id_code ='" . $id_code . "' and hien_thi = 1");
+        return $row;
     }
     function getContents($id_code, $limit = '')
     {
         if ($limit != '') {
-            $where = " limit 0," . $limit;
+            $limit2 = " LIMIT $limit";
         } else {
-            $where = "";
+            $limit2 = "";
         }
-        $row = $this->o_fet("select * from #_content where hien_thi = 1 and id_loai = $id_code " . _where_lang . " order by so_thu_tu ASC, id DESC $where");
+        $row = $this->fetch_array("SELECT * FROM `#_content`  WHERE id_loai =" . $id_code . " and hien_thi = 1 order by so_thu_tu asc, id desc $limit2");
         return $row;
     }
     function getContent_id($id_code, $limit = '')
     {
         if ($limit != '') {
-            $where = " limit 0," . $limit;
+            $limit2 = " LIMIT $limit";
         } else {
-            $where = "";
+            $limit2 = "";
         }
-        $row = $this->simple_fetch("select * from #_content where hien_thi = 1 and id_code = $id_code " . _where_lang . " order by so_thu_tu ASC, id DESC $where");
+        $row = $this->fetch_array("SELECT * FROM `#_content`  WHERE id =" . $id_code . " and hien_thi = 1 order by so_thu_tu asc, id desc $limit2");
         return $row;
     }
+
     function getData($tale, $col = '', $where = '', $limit = '')
     {
-        if ($limit != '') {
-            $limited = 'limit 0,' . $limit;
-        } else {
-            $limited = "";
-        }
         if ($col != '') {
-            $col_txt = $col;
+            $col2 = $col;
         } else {
-            $col_txt = '*';
+            $col2 = "*";
         }
-        if ($where != "") {
-            $where_txt = " and $where";
+        if ($where != '') {
+            $where2 = "WHERE $where";
         } else {
-            $where_txt = '';
+            $where2 = "";
         }
-        $row = $this->o_fet("select $col_txt from #_" . $tale . " where hien_thi = 1 $where_txt order by so_thu_tu ASC, id DESC $limited");
+        if ($limit != '') {
+            $limit2 = " LIMIT $limit";
+        } else {
+            $limit2 = "";
+        }
+        $row = $this->fetch_array("SELECT $col2 FROM `#_$tale`  $where2  order by so_thu_tu asc, id desc $limit2");
         return $row;
     }
+
     function getTinh($col = '*', $id = '')
     {
-        if ($id == '') {
-            $row = $this->o_fet("select $col from #_thanhpho order by ten ASC ");
+        if ($id != '') {
+            $andhome = " and id='" . $id . "' ";
         } else {
-            $row = $this->simple_fetch("select $col from #_thanhpho where code= '" . $id . "' order by ten ASC ");
+            $andhome = "";
         }
+        $row = $this->fetch_array("SELECT $col FROM `tinh`  WHERE 1 $andhome order by ten asc, id desc");
         return $row;
     }
     function getHuyen($code_tinh, $col = '*', $code = '')
     {
-        if ($code == '') {
-            $row = $this->o_fet("select $col from #_huyen where code_tinh ='" . $code_tinh . "' order by ten ASC ");
+        if ($code != '') {
+            $andhome = " and id='" . $code . "' ";
         } else {
-            $row = $this->simple_fetch("select $col from #_huyen where code_tinh ='" . $code_tinh . "' and code= '" . $code . "' order by ten ASC ");
+            $andhome = "";
         }
+        $row = $this->fetch_array("SELECT $col FROM `huyen`  WHERE code_tinh = '$code_tinh' $andhome order by ten asc, id desc");
         return $row;
     }
     function getXa($code_huyen, $col = '*', $code = '')
     {
-        if ($code == '') {
-            $row = $this->o_fet("select $col from #_xa where code_huyen ='" . $code_huyen . "' order by ten ASC ");
+        if ($code != '') {
+            $andhome = " and id='" . $code . "' ";
         } else {
-            $row = $this->simple_fetch("select $col from #_xa where code_huyen ='" . $code_huyen . "' and code='" . $code . "' order by ten ASC ");
+            $andhome = "";
         }
+        $row = $this->fetch_array("SELECT $col FROM `xa`  WHERE code_huyen = '$code_huyen' $andhome order by ten asc, id desc");
         return $row;
     }
 
     function getDataId($tale, $id_code, $col = '*')
     {
-        $row = $this->simple_fetch("select $col from #_" . $tale . " where id_code = $id_code  limit 0,1");
+        $row = $this->simple_fetch("SELECT $col FROM `#_$tale`  WHERE id =" . $id_code . "");
         return $row;
     }
     function getTxt($id)
     {
-        $row = $this->simple_fetch("select text from #_text where id = $id ");
-        $str = $row['text'];
-        $arr_txt = json_decode($str, true);
-        return $arr_txt[_lang];
+        $row = $this->simple_fetch("SELECT * FROM `#_ten`  WHERE id =" . $id);
+        if (is_array($row) && !empty($row)) {
+            return $row['ten'];
+        }
     }
     function getReview($id_sp)
     {
-        //echo "select * from db_binhluan where id_sanpham =".(int)$id_sp." and trang_thai = 1 and parent=0 and danh_gia > 0 ";
-        $row = $this->simple_fetch("select * from #_sanpham where id_code = " . $id_sp . " ");
-        $count_bl = $this->num_rows("select * from #_binhluan where id_sanpham =" . (int)$id_sp . " and trang_thai = 1 and parent=0 and danh_gia > 0 ");
-        $tongsao = $this->simple_fetch("select sum(danh_gia) as tong from #_binhluan where id_sanpham =" . (int)$id_sp . " and trang_thai = 1 and parent=0 and danh_gia > 0 order by id DESC ");
-        if ($count_bl > 0) {
-            $sao_trung_binh = $tongsao['tong'] / $count_bl;
+        $product_id = $id_sp;
+        $d_rating = $this->o_fet("SELECT rate FROM #_binh_luan WHERE id_sanpham = $id_sp AND  rate > 0");
+        $total_rating = 0;
+        $total_reviews = count($d_rating);
+
+        if ($total_reviews > 0) {
+            foreach ($d_rating as $rating) {
+                $total_rating += $rating['rate'];
+            }
+            $average_rating = $total_rating / $total_reviews;
+            $average_rating = round($average_rating, 1);
         } else {
-            $sao_trung_binh = 0;
+            $average_rating = 0;
+            $total_reviews = 0;
         }
 
-        if ($sao_trung_binh > 0) {
-            $sao = '';
-            for ($i = 0; $i < $sao_trung_binh; $i++) {
-                $sao .= '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-star-fill" viewBox="0 0 16 16">
-  <path d="M3.612 15.443c-.386.198-.824-.149-.746-.592l.83-4.73L.173 6.765c-.329-.314-.158-.888.283-.95l4.898-.696L7.538.792c.197-.39.73-.39.927 0l2.184 4.327 4.898.696c.441.062.612.636.282.95l-3.522 3.356.83 4.73c.078.443-.36.79-.746.592L8 13.187l-4.389 2.256z"/>
-</svg>';
-            }
-            for ($i = 0; $i < 5 - $sao_trung_binh; $i++) {
-                $sao .=  '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-star" viewBox="0 0 16 16">
-  <path d="M2.866 14.85c-.078.444.36.791.746.593l4.39-2.256 4.389 2.256c.386.198.824-.149.746-.592l-.83-4.73 3.522-3.356c.33-.314.16-.888-.282-.95l-4.898-.696L8.465.792a.513.513 0 0 0-.927 0L5.354 5.12l-4.898.696c-.441.062-.612.636-.283.95l3.523 3.356-.83 4.73zm4.905-2.767-3.686 1.894.694-3.957a.565.565 0 0 0-.163-.505L1.71 6.745l4.052-.576a.525.525 0 0 0 .393-.288L8 2.223l1.847 3.658a.525.525 0 0 0 .393.288l4.052.575-2.906 2.77a.565.565 0 0 0-.163.506l.694 3.957-3.686-1.894a.503.503 0 0 0-.461 0z"/>
-</svg>';
+        $stars = array();
+        for ($i = 1; $i <= 5; $i++) {
+            $count = $this->num_rows("SELECT * FROM #_binh_luan WHERE id_sanpham = $id_sp AND rate = $i");
+            $stars[$i] = $count;
+        }
+
+        $stars_percentage = array();
+        if ($total_reviews > 0) {
+            for ($i = 1; $i <= 5; $i++) {
+                $stars_percentage[$i] = ($stars[$i] / $total_reviews) * 100;
             }
         } else {
-            $sao = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-star" viewBox="0 0 16 16">
-  <path d="M2.866 14.85c-.078.444.36.791.746.593l4.39-2.256 4.389 2.256c.386.198.824-.149.746-.592l-.83-4.73 3.522-3.356c.33-.314.16-.888-.282-.95l-4.898-.696L8.465.792a.513.513 0 0 0-.927 0L5.354 5.12l-4.898.696c-.441.062-.612.636-.283.95l3.523 3.356-.83 4.73zm4.905-2.767-3.686 1.894.694-3.957a.565.565 0 0 0-.163-.505L1.71 6.745l4.052-.576a.525.525 0 0 0 .393-.288L8 2.223l1.847 3.658a.525.525 0 0 0 .393.288l4.052.575-2.906 2.77a.565.565 0 0 0-.163.506l.694 3.957-3.686-1.894a.503.503 0 0 0-.461 0z"/>
-</svg>
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-star" viewBox="0 0 16 16">
-  <path d="M2.866 14.85c-.078.444.36.791.746.593l4.39-2.256 4.389 2.256c.386.198.824-.149.746-.592l-.83-4.73 3.522-3.356c.33-.314.16-.888-.282-.95l-4.898-.696L8.465.792a.513.513 0 0 0-.927 0L5.354 5.12l-4.898.696c-.441.062-.612.636-.283.95l3.523 3.356-.83 4.73zm4.905-2.767-3.686 1.894.694-3.957a.565.565 0 0 0-.163-.505L1.71 6.745l4.052-.576a.525.525 0 0 0 .393-.288L8 2.223l1.847 3.658a.525.525 0 0 0 .393.288l4.052.575-2.906 2.77a.565.565 0 0 0-.163.506l.694 3.957-3.686-1.894a.503.503 0 0 0-.461 0z"/>
-</svg>
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-star" viewBox="0 0 16 16">
-  <path d="M2.866 14.85c-.078.444.36.791.746.593l4.39-2.256 4.389 2.256c.386.198.824-.149.746-.592l-.83-4.73 3.522-3.356c.33-.314.16-.888-.282-.95l-4.898-.696L8.465.792a.513.513 0 0 0-.927 0L5.354 5.12l-4.898.696c-.441.062-.612.636-.283.95l3.523 3.356-.83 4.73zm4.905-2.767-3.686 1.894.694-3.957a.565.565 0 0 0-.163-.505L1.71 6.745l4.052-.576a.525.525 0 0 0 .393-.288L8 2.223l1.847 3.658a.525.525 0 0 0 .393.288l4.052.575-2.906 2.77a.565.565 0 0 0-.163.506l.694 3.957-3.686-1.894a.503.503 0 0 0-.461 0z"/>
-</svg>
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-star" viewBox="0 0 16 16">
-  <path d="M2.866 14.85c-.078.444.36.791.746.593l4.39-2.256 4.389 2.256c.386.198.824-.149.746-.592l-.83-4.73 3.522-3.356c.33-.314.16-.888-.282-.95l-4.898-.696L8.465.792a.513.513 0 0 0-.927 0L5.354 5.12l-4.898.696c-.441.062-.612.636-.283.95l3.523 3.356-.83 4.73zm4.905-2.767-3.686 1.894.694-3.957a.565.565 0 0 0-.163-.505L1.71 6.745l4.052-.576a.525.525 0 0 0 .393-.288L8 2.223l1.847 3.658a.525.525 0 0 0 .393.288l4.052.575-2.906 2.77a.565.565 0 0 0-.163.506l.694 3.957-3.686-1.894a.503.503 0 0 0-.461 0z"/>
-</svg>
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-star" viewBox="0 0 16 16">
-  <path d="M2.866 14.85c-.078.444.36.791.746.593l4.39-2.256 4.389 2.256c.386.198.824-.149.746-.592l-.83-4.73 3.522-3.356c.33-.314.16-.888-.282-.95l-4.898-.696L8.465.792a.513.513 0 0 0-.927 0L5.354 5.12l-4.898.696c-.441.062-.612.636-.283.95l3.523 3.356-.83 4.73zm4.905-2.767-3.686 1.894.694-3.957a.565.565 0 0 0-.163-.505L1.71 6.745l4.052-.576a.525.525 0 0 0 .393-.288L8 2.223l1.847 3.658a.525.525 0 0 0 .393.288l4.052.575-2.906 2.77a.565.565 0 0 0-.163.506l.694 3.957-3.686-1.894a.503.503 0 0 0-.461 0z"/>
-</svg>';
+            for ($i = 1; $i <= 5; $i++) {
+                $stars_percentage[$i] = 0;
+            }
         }
-        //$tong_ban = $this->simple_fetch("SELECT id_sp, SUM(so_luong) as tong FROM `db_dathang_chitiet` WHERE id_sp= ".(int)$id_sp." GROUP BY id_sp");
-        $review = '<span>' . $sao_trung_binh . '</span><ul class="rating-d"> ' . $sao . ' </ul> <span>Đã bán <b>' . $row['da_ban'] . '</b></span>';
-        return $review;
+
+        $result = array(
+            'average_rating' => $average_rating,
+            'total_reviews' => $total_reviews,
+            'stars' => $stars,
+            'stars_percentage' => $stars_percentage
+        );
+
+        return $result;
     }
     function getReview2($id_sp)
     {
-        //echo "select * from db_binhluan where id_sanpham =".(int)$id_sp." and trang_thai = 1 and parent=0 and danh_gia > 0 ";
-        $row = $this->simple_fetch("select * from #_sanpham where id_code = " . $id_sp . " ");
-        $count_bl = $this->num_rows("select * from #_binhluan where id_sanpham =" . (int)$id_sp . " and trang_thai = 1 and parent=0 and danh_gia > 0 ");
-        $tongsao = $this->simple_fetch("select sum(danh_gia) as tong from #_binhluan where id_sanpham =" . (int)$id_sp . " and trang_thai = 1 and parent=0 and danh_gia > 0 order by id DESC ");
-        if ($count_bl > 0) {
-            $sao_trung_binh = $tongsao['tong'] / $count_bl;
+        $product_id = $id_sp;
+        $d_rating = $this->o_fet("SELECT rate FROM #_binh_luan WHERE id_sanpham = $id_sp AND  rate > 0");
+        $total_rating = 0;
+        $total_reviews = count($d_rating);
+
+        if ($total_reviews > 0) {
+            foreach ($d_rating as $rating) {
+                $total_rating += $rating['rate'];
+            }
+            $average_rating = $total_rating / $total_reviews;
+            $average_rating = round($average_rating, 1);
         } else {
-            $sao_trung_binh = 0;
+            $average_rating = 0;
+            $total_reviews = 0;
         }
 
-        if ($sao_trung_binh > 0) {
-            $sao = '';
-            for ($i = 0; $i < $sao_trung_binh; $i++) {
-                $sao .= '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-star-fill" viewBox="0 0 16 16">
-  <path d="M3.612 15.443c-.386.198-.824-.149-.746-.592l.83-4.73L.173 6.765c-.329-.314-.158-.888.283-.95l4.898-.696L7.538.792c.197-.39.73-.39.927 0l2.184 4.327 4.898.696c.441.062.612.636.282.95l-3.522 3.356.83 4.73c.078.443-.36.79-.746.592L8 13.187l-4.389 2.256z"/>
-</svg>';
-            }
-            for ($i = 0; $i < 5 - $sao_trung_binh; $i++) {
-                $sao .=  '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-star" viewBox="0 0 16 16">
-  <path d="M2.866 14.85c-.078.444.36.791.746.593l4.39-2.256 4.389 2.256c.386.198.824-.149.746-.592l-.83-4.73 3.522-3.356c.33-.314.16-.888-.282-.95l-4.898-.696L8.465.792a.513.513 0 0 0-.927 0L5.354 5.12l-4.898.696c-.441.062-.612.636-.283.95l3.523 3.356-.83 4.73zm4.905-2.767-3.686 1.894.694-3.957a.565.565 0 0 0-.163-.505L1.71 6.745l4.052-.576a.525.525 0 0 0 .393-.288L8 2.223l1.847 3.658a.525.525 0 0 0 .393.288l4.052.575-2.906 2.77a.565.565 0 0 0-.163.506l.694 3.957-3.686-1.894a.503.503 0 0 0-.461 0z"/>
-</svg>';
+        $stars = array();
+        for ($i = 1; $i <= 5; $i++) {
+            $count = $this->num_rows("SELECT * FROM #_binh_luan WHERE id_sanpham = $id_sp AND rate = $i");
+            $stars[$i] = $count;
+        }
+
+        $stars_percentage = array();
+        if ($total_reviews > 0) {
+            for ($i = 1; $i <= 5; $i++) {
+                $stars_percentage[$i] = ($stars[$i] / $total_reviews) * 100;
             }
         } else {
-            $sao = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-star" viewBox="0 0 16 16">
-  <path d="M2.866 14.85c-.078.444.36.791.746.593l4.39-2.256 4.389 2.256c.386.198.824-.149.746-.592l-.83-4.73 3.522-3.356c.33-.314.16-.888-.282-.95l-4.898-.696L8.465.792a.513.513 0 0 0-.927 0L5.354 5.12l-4.898.696c-.441.062-.612.636-.283.95l3.523 3.356-.83 4.73zm4.905-2.767-3.686 1.894.694-3.957a.565.565 0 0 0-.163-.505L1.71 6.745l4.052-.576a.525.525 0 0 0 .393-.288L8 2.223l1.847 3.658a.525.525 0 0 0 .393.288l4.052.575-2.906 2.77a.565.565 0 0 0-.163.506l.694 3.957-3.686-1.894a.503.503 0 0 0-.461 0z"/>
-</svg>
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-star" viewBox="0 0 16 16">
-  <path d="M2.866 14.85c-.078.444.36.791.746.593l4.39-2.256 4.389 2.256c.386.198.824-.149.746-.592l-.83-4.73 3.522-3.356c.33-.314.16-.888-.282-.95l-4.898-.696L8.465.792a.513.513 0 0 0-.927 0L5.354 5.12l-4.898.696c-.441.062-.612.636-.283.95l3.523 3.356-.83 4.73zm4.905-2.767-3.686 1.894.694-3.957a.565.565 0 0 0-.163-.505L1.71 6.745l4.052-.576a.525.525 0 0 0 .393-.288L8 2.223l1.847 3.658a.525.525 0 0 0 .393.288l4.052.575-2.906 2.77a.565.565 0 0 0-.163.506l.694 3.957-3.686-1.894a.503.503 0 0 0-.461 0z"/>
-</svg>
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-star" viewBox="0 0 16 16">
-  <path d="M2.866 14.85c-.078.444.36.791.746.593l4.39-2.256 4.389 2.256c.386.198.824-.149.746-.592l-.83-4.73 3.522-3.356c.33-.314.16-.888-.282-.95l-4.898-.696L8.465.792a.513.513 0 0 0-.927 0L5.354 5.12l-4.898.696c-.441.062-.612.636-.283.95l3.523 3.356-.83 4.73zm4.905-2.767-3.686 1.894.694-3.957a.565.565 0 0 0-.163-.505L1.71 6.745l4.052-.576a.525.525 0 0 0 .393-.288L8 2.223l1.847 3.658a.525.525 0 0 0 .393.288l4.052.575-2.906 2.77a.565.565 0 0 0-.163.506l.694 3.957-3.686-1.894a.503.503 0 0 0-.461 0z"/>
-</svg>
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-star" viewBox="0 0 16 16">
-  <path d="M2.866 14.85c-.078.444.36.791.746.593l4.39-2.256 4.389 2.256c.386.198.824-.149.746-.592l-.83-4.73 3.522-3.356c.33-.314.16-.888-.282-.95l-4.898-.696L8.465.792a.513.513 0 0 0-.927 0L5.354 5.12l-4.898.696c-.441.062-.612.636-.283.95l3.523 3.356-.83 4.73zm4.905-2.767-3.686 1.894.694-3.957a.565.565 0 0 0-.163-.505L1.71 6.745l4.052-.576a.525.525 0 0 0 .393-.288L8 2.223l1.847 3.658a.525.525 0 0 0 .393.288l4.052.575-2.906 2.77a.565.565 0 0 0-.163.506l.694 3.957-3.686-1.894a.503.503 0 0 0-.461 0z"/>
-</svg>
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-star" viewBox="0 0 16 16">
-  <path d="M2.866 14.85c-.078.444.36.791.746.593l4.39-2.256 4.389 2.256c.386.198.824-.149.746-.592l-.83-4.73 3.522-3.356c.33-.314.16-.888-.282-.95l-4.898-.696L8.465.792a.513.513 0 0 0-.927 0L5.354 5.12l-4.898.696c-.441.062-.612.636-.283.95l3.523 3.356-.83 4.73zm4.905-2.767-3.686 1.894.694-3.957a.565.565 0 0 0-.163-.505L1.71 6.745l4.052-.576a.525.525 0 0 0 .393-.288L8 2.223l1.847 3.658a.525.525 0 0 0 .393.288l4.052.575-2.906 2.77a.565.565 0 0 0-.163.506l.694 3.957-3.686-1.894a.503.503 0 0 0-.461 0z"/>
-</svg>';
+            for ($i = 1; $i <= 5; $i++) {
+                $stars_percentage[$i] = 0;
+            }
         }
-        $tong_ban = $this->simple_fetch("SELECT id_sp, SUM(so_luong) as tong FROM `db_dathang_chitiet` WHERE id_sp= " . (int)$id_sp . " GROUP BY id_sp");
-        $review = '<span style="position: relative;top: 3px;">' . $sao_trung_binh . '</span><ul class="rating-d"> ' . $sao . ' </ul> |<span class="px-2">( <b>' . $count_bl . '</b> đánh giá )</span> | <span class="px-2">Đã bán <b>' . $row['da_ban'] . '</b></span>';
-        return $review;
+
+        $result = array(
+            'average_rating' => $average_rating,
+            'total_reviews' => $total_reviews,
+            'stars' => $stars,
+            'stars_percentage' => $stars_percentage
+        );
+
+        return $result;
     }
     function showthongtin($data = '')
     {
-        $url = URLPATH;
-        $mxh        =   $this->simple_fetch("select * from #_thongtin where lang = '" . $_SESSION['lang'] . "'");
-        if ($data == '') {
-            return $mxh;
-        } else {
-            if ($data == 'logo') {
-                $text = $url . 'img_data/images/' . $mxh['icon_share'];
-            } elseif ($data == 'favicon') {
-                $text = $url . 'img_data/images/' . $mxh['favicon'];
-            } elseif ($data == 'backlink') {
-                $text = '<a href="http://phuongnamvina.vn/" target="_blank" title="Design Web: PhuongNamVina">Design Web: PhuongNamVina</a>';
+        if ($data === '') {
+            // Trả về dữ liệu từ bảng thông tin khi không có tham số
+            return $this->simple_fetch("SELECT * FROM #_thongtin LIMIT 1");
+        } elseif (is_array($data)) {
+            if (isset($data['ho_ten'])) {
+                $str = $data['ho_ten'];
+            } elseif (isset($data['ten_cong_ty'])) {
+                $str = $data['ten_cong_ty'];
             } else {
-                $text = $mxh[$data];
+                $str = $data['sdt'];
             }
-            return $text;
-        }
-    }
-
-    public function get_link_lang($com, $lang)
-    {
-        if ($com != '') {
-            $arrtable = ['category', 'sanpham', 'tintuc'];
-            foreach ($arrtable as $value) {
-                $sql = "select id_code from #_{$value} where alias='{$com}'";
-                $result = $this->simple_fetch($sql);
-                // var_dump($sql);
-                if ($result) {
-                    $link = $this->simple_fetch("select alias from #_{$value} where id_code = {$result['id_code']} and lang = '{$lang}' ");
-                    return $lang . "/" . $link['alias'] . ".html";
-                }
-            }
-            return $com . ".html";
+            return $str;
         } else {
-            return $lang . "/";
+            return $data;
         }
     }
 
-    // Cart
-
+    public function get_link_lang($com, $lang) 
+    {
+        $row = $this->simple_fetch("SELECT * FROM `#_content_en`  WHERE alias ='$com'  ");
+        if (is_array($row) && !empty($row)) {
+            if ($lang == 'vi') {
+                $query = $this->simple_fetch("SELECT * FROM `#_content`  WHERE id =" . $row['id_vi'] . " ");
+                if (is_array($query) && !empty($query)) {
+                    return URLPATH . $query['alias'] . '.html';
+                } else {
+                    return URLPATH;
+                }
+            } else {
+                return URLPATH . 'en/' . $row['alias'] . '.html';
+            }
+        } else {
+            return URLPATH;
+        }
+    }
     function product_exists($code = '', $q = 1)
     {
-        $flag = 0;
-        if (isset($_SESSION['cart']) && $code != '') {
+        $ck = $this->num_rows("SELECT * FROM #_sanpham WHERE ma_sp = '$code' ");
 
-            $q = ($q > 1) ? $q : 1;
-
-            $max = count($_SESSION['cart']);
-
-            for ($i = 0; $i < $max; $i++) {
-
-                if ($code == $_SESSION['cart'][$i]['code']) {
-
-
-                    $_SESSION['cart'][$i]['soluong'] += $q;
-
-                    $flag = 1;
-                }
+        if ($ck > 0) {
+            return 1;
+        } else {
+            $data = array();
+            $data['ma_sp'] = $code;
+            $data['so_luong'] = $q;
+            $data['ngay_tao'] = date('Y-m-d H:i:s');
+            $data['hien_thi'] = 1;
+            $this->reset();
+            $this->setTable('#_sanpham');
+            $id = $this->insert($data);
+            if ($id > 0) {
+                $data_seo = array();
+                $data_seo['id_sanpham'] = $id;
+                $data_seo['meta_title'] = $code;
+                $data_seo['meta_keyword'] = $code;
+                $data_seo['meta_description'] = $code;
+                $this->reset();
+                $this->setTable('#_seo_sanpham');
+                $this->insert($data_seo);
             }
+
+            return 0;
         }
-
-
-        return $flag;
     }
-
     function addtocart($q = 1, $pid = 0, $mau = 0, $size = 0)
     {
-        $code = md5($pid . $mau . $size);
+        $mau_sp = ($mau > 0) ? $mau : 0;
+        $size_sp = ($size > 0) ? $size : 0;
+        $_SESSION['cart']['sp' . $pid . 'mau' . $mau_sp . 'size' . $size_sp] = array(
+            'id' => $pid,
+            'soluong' => $q,
+            'mau' => $mau_sp,
+            'size' => $size_sp
+        );
 
-        if ($pid < 1 or $q < 1) return;
-        if (isset($_SESSION['cart'])) {
-
-            if (!$this->product_exists($code, $q)) {
-
-                $max = count($_SESSION['cart']);
-
-                $_SESSION['cart'][$max]['productid'] = $pid;
-
-                $_SESSION['cart'][$max]['soluong'] = $q;
-
-                $_SESSION['cart'][$max]['mau'] = $mau;
-
-                $_SESSION['cart'][$max]['size'] = $size;
-
-                $_SESSION['cart'][$max]['code'] = $code;
+        // $_SESSION['cart'][$pid] = array(
+        //     'id' => $pid,
+        //     'soluong' => $q,
+        //     'mau' => $mau_sp,
+        //     'size' => $size_sp
+        // );
+        $sanpham = $this->simple_fetch("SELECT * FROM #_sanpham WHERE  id = $pid");
+        if ($sanpham['kiem_kho'] == 1) {
+            $so_luong_sp = intval($sanpham['so_luong']);
+            $so_luong_mua = intval($q);
+            $so_luong_con = $so_luong_sp - $so_luong_mua;
+            if ($so_luong_con >= 0) {
+                $data_update = array();
+                $data_update['so_luong'] = $so_luong_con;
+                $this->reset();
+                $this->setTable('#_sanpham');
+                $this->setWhere('id', $pid);
+                $this->update($data_update);
             }
-        } else {
-
-            $_SESSION['cart'] = array();
-
-            $_SESSION['cart'][0]['productid'] = $pid;
-
-            $_SESSION['cart'][0]['soluong'] = $q;
-
-            $_SESSION['cart'][0]['mau'] = $mau;
-
-            $_SESSION['cart'][0]['size'] = $size;
-
-            $_SESSION['cart'][0]['code'] = $code;
         }
     }
 
     public function get_order_total()
     {
-        $sum = 0;
+        $total = 0;
         if (isset($_SESSION['cart'])) {
-            $max = count($_SESSION['cart']);
-            for ($i = 0; $i < $max; $i++) {
-                $pid = $_SESSION['cart'][$i]['productid'];
-                $q = $_SESSION['cart'][$i]['soluong'];
+            foreach ($_SESSION['cart'] as $key => $value) {
 
-                $proinfo = $this->simple_fetch("select * from #_sanpham where id_code={$pid} ");
-
-                if ($proinfo['khuyen_mai']) $price = $proinfo['khuyen_mai'];
-
-                else $price = $proinfo['gia'];
-
-                $sum += ($price * $q);
+                $id = $value['id'];
+                $mau = $value['mau'];
+                $size = $value['size'];
+                $gia = 0;
+                // Lấy giá sản phẩm
+                $sanpham = $this->simple_fetch("SELECT * FROM #_sanpham WHERE id = $id ");
+                if ($sanpham['gia_km'] > 0) {
+                    $gia = $sanpham['gia_km'];
+                } else {
+                    $gia = $sanpham['gia'];
+                }
+                $soluong = $value['soluong'];
+                $total += $gia * $soluong;
             }
         }
-        return $sum;
+        return $total;
     }
-
-    // Chuyển tiền tệ start
-
     function chuyentiente($key = 'fc01aba01229377741b9e9fa')
     {
+        // Khởi tạo cURL
+        $curl = curl_init();
 
-        $api_key = $key;
-        $req_url = 'https://v6.exchangerate-api.com/v6/fc01aba01229377741b9e9fa/latest/USD';
-        $response_json = file_get_contents($req_url);
-        // Continuing if we got a result
-        if (false !== $response_json) {
-            // Try/catch for json_decode operation
-            try {
+        // Thiết lập cURL
+        curl_setopt_array($curl, array(
+            CURLOPT_URL => "https://api.freeconvert.com/v1/process/tasks",
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING => "",
+            CURLOPT_MAXREDIRS => 10,
+            CURLOPT_TIMEOUT => 0,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+            CURLOPT_CUSTOMREQUEST => "GET",
+            CURLOPT_HTTPHEADER => array(
+                "Authorization: Bearer " . $key,
+                "Accept: application/json"
+            ),
+        ));
 
-                // Decoding
-                $response = json_decode($response_json);
+        // Thực hiện cURL và nhận phản hồi
+        $response = curl_exec($curl);
 
-                // Check for success
-                if ('success' === $response->result) {
-                    // YOUR APPLICATION CODE HERE, e.g.
-                    // $base_price = $amount; // Your price in VND
-                    // return $USD_price = round(($base_price * $response->conversion_rates->USD), 2);
-                    return $response->conversion_rates->VND;
-                }
-            } catch (Exception $e) {
-            }
+        // Kiểm tra lỗi
+        if (curl_error($curl)) {
+            $error_msg = curl_error($curl);
+            curl_close($curl);
+            return "Lỗi cURL: " . $error_msg;
         }
-        return 1;
-    }
-    // Chuyển tiền tệ end
 
-    // Check level danh mục start
+        // Đóng cURL
+        curl_close($curl);
+
+        // Chuyển đổi JSON thành mảng PHP
+        $data = json_decode($response, true);
+
+        // Trả về dữ liệu
+        return $data;
+    }
     function checkLevelCategory($id)
     {
-        $category = $this->getCate($id); // Lấy thông tin danh mục
-        // Nếu không có danh mục cha là cấp 0    
-        if ($category['id_loai'] == 0) {
-            return 0;
+        $level = 0;
+        $query = $this->simple_fetch("SELECT * FROM #_category WHERE id = $id ");
+        if ($query['id_loai'] > 0) {
+            $level++;
+            $level += $this->checkLevelCategory($query['id_loai']);
         }
-        // Lấy danh mục cha
-        $parent = $this->getCate($category['id_loai']);
-
-        // Gọi đệ quy để tìm cấp độ
-        $parent_level = $this->checkLevelCategory($parent['id_code']);
-
-        // Trả về cấp độ
-        return $parent_level + 1;
+        return $level;
     }
-    // Check level danh mục end
 
-    // lấy các danh mục theo module
     function get_cate_module($module, $lang = 'vi')
     {
-        // danh sách tuyển dụng hot
-        $category_module = $this->o_fet("select id_code from #_category where module = {$module} and lang = '{$lang}'");
-        $category_module_array = "";
-        foreach ($category_module as $key => $v) {
-            $category_module_array .= $v['id_code'] . ",";
-        }
-        $category_module_id = rtrim($category_module_array, ",");
-        return $category_module_id;
+        $query = $this->fetch_array("SELECT * FROM #_category WHERE module = '$module' AND lang = '$lang' and hien_thi = 1 ORDER BY so_thu_tu ASC, id DESC");
+        return $query;
     }
 }
